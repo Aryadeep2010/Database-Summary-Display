@@ -1,10 +1,7 @@
 # application.py
 import os
-import openai 
-
-api_key = st.secrets["OPENAI_API_KEY"]
-print(api_key)
-import streamlit as st  # type: ignore
+import streamlit as st  # must import first
+import openai
 import pandas as pd  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 from sklearn.ensemble import IsolationForest  # type: ignore
@@ -14,6 +11,14 @@ from io import StringIO
 import docx2txt
 import fitz  # PyMuPDF
 from openai import OpenAI
+
+# ---- OPENAI API KEY ----
+# First try Streamlit secrets, fallback to environment variable
+api_key = st.secrets.get("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+if not api_key:
+    st.error("⚠️ No OpenAI API key found. Set it in .streamlit/secrets.toml or as environment variable.")
+client = OpenAI(api_key=api_key) if api_key else None
+
 
 # ---------------------------
 # Streamlit Config + CSS
