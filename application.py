@@ -2,7 +2,8 @@
 import os
 import openai 
 
-openai.api_key = os.getenv("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")
+api_key = st.secrets["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"]
+print(api_key)
 import streamlit as st  # type: ignore
 import pandas as pd  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
