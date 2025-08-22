@@ -5,4 +5,5 @@ scikit-learn
 docx2txt
 PyMuPDF
 reportlab
-PyPDF2
+openpyxl
+python-docx
