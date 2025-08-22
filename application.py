@@ -5,12 +5,12 @@ import pandas as pd  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 from sklearn.ensemble import IsolationForest  # type: ignore
 
-# ---- NEW: for documents ----
+# ---- for documents ----
 from io import StringIO
 import docx2txt
 import fitz  # PyMuPDF
 
-# For offline summarization
+# Offline summarization
 from gensim.summarization import summarize
 
 # ---------------------------
@@ -156,7 +156,7 @@ if mode == "📂 Dataset":
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ===========================
-# MODE 2: Document (Offline Summarization)
+# MODE 2: Document (Offline, Safe)
 # ===========================
 else:
     st.subheader("📑 Upload a document (PDF, DOCX, or TXT)")
@@ -186,10 +186,18 @@ else:
     if st.button("Generate Summary"):
         with st.spinner("Summarizing..."):
             try:
-                summary = summarize(text, ratio=0.05)
-                if not summary.strip():
+                # safe summarization
+                if len(text.split('.')) < 10:
                     summary = "⚠️ Document too short to summarize."
+                else:
+                    summary = summarize(text, ratio=0.05)
+                    if not summary.strip():
+                        summary = "⚠️ Could not generate summary. Text may be too short or unstructured."
             except Exception as e:
                 summary = f"⚠️ Could not summarize: {e}"
 
         st.text_area("Summary:", summary, height=200)
+        st.download_button("⬇️ Download Summary",
+                           summary,
+                           "summary.txt",
+                           "text/plain")
