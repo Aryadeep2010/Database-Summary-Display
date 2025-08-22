@@ -1,111 +1,195 @@
-import streamlit as st
-import pandas as pd
-import PyPDF2
-import docx
-import re
-from collections import Counter
+# application.py
+import os
+import streamlit as st  # type: ignore
+import pandas as pd  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+from sklearn.ensemble import IsolationForest  # type: ignore
 
-# -------------------------
-# Simple Text Summarizer
-# -------------------------
-def summarize_text(text, num_sentences=5):
-    # Split text into sentences
-    sentences = re.split(r'(?<=[.!?]) +', text)
+# ---- NEW: for documents ----
+from io import StringIO
+import docx2txt
+import fitz  # PyMuPDF
 
-    # Tokenize words
-    words = re.findall(r'\w+', text.lower())
+# For offline summarization
+from gensim.summarization import summarize
 
-    # Word frequency
-    word_freq = Counter(words)
+# ---------------------------
+# Streamlit Config + CSS
+# ---------------------------
+st.set_page_config(page_title="AI-Assisted Data Insights", layout="wide")
+st.markdown(
+    """
+    <style>
+      .stApp { background: #0f172a; color: #e2e8f0; }
+      h1,h2,h3 { color: #60a5fa; }
+      .stButton>button {
+          background:#3b82f6; color:white; border:0; padding:0.6rem 1rem;
+          border-radius:10px; transition:0.2s;
+      }
+      .stButton>button:hover { transform: translateY(-1px); }
+      .card {
+          background:#111827; border-radius:14px; padding:16px; margin:8px 0;
+          box-shadow:0 6px 18px rgba(0,0,0,0.25);
+      }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
-    # Score sentences
-    sentence_scores = {}
-    for sent in sentences:
-        for word in re.findall(r'\w+', sent.lower()):
-            if word in word_freq:
-                sentence_scores[sent] = sentence_scores.get(sent, 0) + word_freq[word]
+st.markdown("<h1>📊 AI-Assisted Data Insights Dashboard</h1>", unsafe_allow_html=True)
 
-    # Pick top sentences
-    ranked_sentences = sorted(sentence_scores, key=sentence_scores.get, reverse=True)
-    summary = " ".join(ranked_sentences[:num_sentences])
-    return summary if summary else "⚠️ Could not generate summary."
+# ---------------------------
+# Helpers
+# ---------------------------
+@st.cache_data
+def load_file(file):
+    if file.name.endswith(".csv"):
+        df = pd.read_csv(file)
+    else:
+        df = pd.read_excel(file)
+    return df
 
-
-# -------------------------
-# File Handlers
-# -------------------------
-def handle_csv_xlsx(uploaded_file):
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df = pd.read_csv(uploaded_file)
+def infer_types(df: pd.DataFrame):
+    types = {}
+    for col in df.columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            types[col] = "datetime"
+        elif pd.api.types.is_numeric_dtype(df[col]):
+            types[col] = "numeric"
         else:
-            df = pd.read_excel(uploaded_file)
-        return df
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
-        return None
+            types[col] = "categorical"
+    return types
 
+# ---------------------------
+# Sidebar: choose mode
+# ---------------------------
+mode = st.sidebar.radio("Choose what to analyze:", ["📂 Dataset", "📑 Document"])
 
-def handle_pdf(uploaded_file):
-    try:
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        return text.strip()
-    except Exception as e:
-        st.error(f"Error reading PDF: {e}")
-        return ""
+# ===========================
+# MODE 1: Dataset
+# ===========================
+if mode == "📂 Dataset":
+    uploaded = st.file_uploader("📂 Upload CSV or Excel file", type=["csv", "xlsx"])
+    if not uploaded:
+        st.info("Please upload a dataset to get started.")
+        st.stop()
 
+    df = load_file(uploaded)
 
-def handle_docx(uploaded_file):
-    try:
-        doc = docx.Document(uploaded_file)
-        text = "\n".join([para.text for para in doc.paragraphs])
-        return text.strip()
-    except Exception as e:
-        st.error(f"Error reading Word file: {e}")
-        return ""
+    st.subheader("👀 Data Preview")
+    st.dataframe(df.head())
 
+    st.subheader("📋 Dataset Summary")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Rows", len(df))
+    col2.metric("Columns", df.shape[1])
+    col3.metric("Missing cells", int(df.isna().sum().sum()))
+    col4.metric("Duplicate rows", int(df.duplicated().sum()))
 
-# -------------------------
-# Streamlit App
-# -------------------------
-st.set_page_config(page_title="Document & Data Analyzer", page_icon="📊", layout="wide")
-st.title("📊 Document & Data Analyzer")
+    types = infer_types(df)
+    st.write("Detected column types:", types)
 
-uploaded_file = st.file_uploader("Upload a file", type=["csv", "xlsx", "pdf", "docx"])
+    with st.expander("🧹 Data Cleaning Options"):
+        drop_dups = st.checkbox("Drop duplicate rows", value=True)
+        na_strategy = st.selectbox("Fill NA for numeric columns with:", ["None", "Mean", "Median"])
+        if drop_dups:
+            df = df.drop_duplicates()
+        if na_strategy != "None":
+            num_cols = [c for c, t in types.items() if t == "numeric"]
+            if num_cols:
+                if na_strategy == "Mean":
+                    df[num_cols] = df[num_cols].fillna(df[num_cols].mean())
+                else:
+                    df[num_cols] = df[num_cols].fillna(df[num_cols].median())
 
-if uploaded_file:
-    if uploaded_file.name.endswith(("csv", "xlsx")):
-        df = handle_csv_xlsx(uploaded_file)
-        if df is not None:
-            st.subheader("📄 Data Preview")
-            st.dataframe(df.head())
+    st.subheader("📈 Quick Charts")
+    chart_col = st.selectbox("Select a column for visualization", df.columns)
+    ctype = types[chart_col]
 
-            if st.button("Generate Summary"):
-                summary = summarize_text(df.to_string())
-                st.subheader("📝 AI-Generated Analysis")
-                st.write(summary)
+    if ctype == "numeric":
+        fig, ax = plt.subplots()
+        ax.hist(df[chart_col].dropna(), bins=30, color="skyblue", edgecolor="black")
+        ax.set_title(f"Histogram • {chart_col}")
+        st.pyplot(fig)
 
-    elif uploaded_file.name.endswith("pdf"):
-        text = handle_pdf(uploaded_file)
-        if text:
-            st.subheader("📄 Extracted PDF Text")
-            st.text_area("Content", text, height=200)
+        fig2, ax2 = plt.subplots()
+        ax2.boxplot(df[chart_col].dropna(), vert=True)
+        ax2.set_title(f"Boxplot • {chart_col}")
+        st.pyplot(fig2)
 
-            if st.button("Generate Summary"):
-                summary = summarize_text(text)
-                st.subheader("📝 AI-Generated Analysis")
-                st.write(summary)
+    elif ctype == "categorical":
+        vc = df[chart_col].astype(str).value_counts().head(15)
+        st.bar_chart(vc)
 
-    elif uploaded_file.name.endswith("docx"):
-        text = handle_docx(uploaded_file)
-        if text:
-            st.subheader("📄 Extracted Word Text")
-            st.text_area("Content", text, height=200)
+    elif ctype == "datetime":
+        num_cols = [c for c, t in types.items() if t == "numeric"]
+        if num_cols:
+            ycol = st.selectbox("Numeric column to plot over time", num_cols)
+            tmp = df[[chart_col, ycol]].dropna().sort_values(chart_col).groupby(chart_col)[ycol].mean()
+            st.line_chart(tmp)
 
-            if st.button("Generate Summary"):
-                summary = summarize_text(text)
-                st.subheader("📝 AI-Generated Analysis")
-                st.write(summary)
+    st.subheader("🚨 Anomaly Detection")
+    num_cols = [c for c, t in types.items() if t == "numeric"]
+    if num_cols:
+        features = st.multiselect("Select numeric features for anomaly detection", num_cols, default=num_cols[:3])
+        if features:
+            X = df[features].dropna()
+            contamination = st.slider("Anomaly Sensitivity", 0.01, 0.1, 0.03)
+            model = IsolationForest(contamination=contamination, random_state=42)
+            preds = model.fit_predict(X)
+            outliers = X[preds == -1]
+            st.write(f"Flagged anomalies: {len(outliers)}")
+            st.dataframe(outliers.head())
+            st.download_button("⬇️ Download anomalies CSV",
+                               outliers.to_csv().encode("utf-8"),
+                               "anomalies.csv", "text/csv")
+    else:
+        st.info("No numeric columns available for anomaly detection.")
+
+    st.subheader("⬇️ Export")
+    st.download_button("Download cleaned dataset (CSV)",
+                       df.to_csv(index=False).encode("utf-8"),
+                       "cleaned_dataset.csv", "text/csv")
+    st.download_button("Download cleaned dataset (XLSX)",
+                       df.to_excel(index=False),
+                       "cleaned_dataset.xlsx",
+                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+# ===========================
+# MODE 2: Document (Offline Summarization)
+# ===========================
+else:
+    st.subheader("📑 Upload a document (PDF, DOCX, or TXT)")
+    doc_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"])
+
+    if not doc_file:
+        st.info("Please upload a document to get started.")
+        st.stop()
+
+    # Extract text
+    text = ""
+    if doc_file.name.lower().endswith(".pdf"):
+        with fitz.open(stream=doc_file.read(), filetype="pdf") as pdf:
+            for page in pdf:
+                text += page.get_text()
+    elif doc_file.name.lower().endswith(".docx"):
+        text = docx2txt.process(doc_file)
+    else:
+        stringio = StringIO(doc_file.getvalue().decode("utf-8", errors="ignore"))
+        text = stringio.read()
+
+    st.subheader("📝 Document Content Preview")
+    preview = text[:4000] + ("..." if len(text) > 4000 else "")
+    st.text_area("Extracted text:", preview, height=220)
+
+    st.subheader("🤖 AI-Free Summary")
+    if st.button("Generate Summary"):
+        with st.spinner("Summarizing..."):
+            try:
+                summary = summarize(text, ratio=0.05)
+                if not summary.strip():
+                    summary = "⚠️ Document too short to summarize."
+            except Exception as e:
+                summary = f"⚠️ Could not summarize: {e}"
+
+        st.text_area("Summary:", summary, height=200)

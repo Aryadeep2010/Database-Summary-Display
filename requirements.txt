@@ -2,8 +2,8 @@ streamlit
 pandas
 matplotlib
 scikit-learn
-docx2txt
 PyMuPDF
-reportlab
+docx2txt
+genism
 openpyxl
-python-docx
+
