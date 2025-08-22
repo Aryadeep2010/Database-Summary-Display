@@ -4,6 +4,6 @@ matplotlib
 scikit-learn
 PyMuPDF
 docx2txt
-genism
+gensim
 openpyxl
 
