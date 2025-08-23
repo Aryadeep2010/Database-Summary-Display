@@ -197,7 +197,3 @@ else:
                 summary = f"⚠️ Could not summarize: {e}"
 
         st.text_area("Summary:", summary, height=200)
-        st.download_button("⬇️ Download Summary",
-                           summary,
-                           "summary.txt",
-                           "text/plain")
