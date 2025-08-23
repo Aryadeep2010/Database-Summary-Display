@@ -12,14 +12,14 @@ from sklearn.preprocessing import StandardScaler  # type: ignore
 import docx2txt
 import fitz  # PyMuPDF
 
-# ---- summarization (Sumy only) ----
+# ---- summarization ----
 from sumy.parsers.plaintext import PlaintextParser
 from sumy.nlp.tokenizers import Tokenizer
 from sumy.summarizers.lex_rank import LexRankSummarizer
 
 # ---- NLTK tokenizer fix ----
 import nltk  # type: ignore
-for resource in ["punkt"]:
+for resource in ["punkt", "punkt_tab"]:
     try:
         nltk.data.find(f"tokenizers/{resource}")
     except LookupError:
@@ -29,25 +29,29 @@ for resource in ["punkt"]:
 # Streamlit Config + CSS
 # ---------------------------
 st.set_page_config(page_title="AI-Assisted Data & Document Insights", layout="wide")
-st.markdown("""
-<style>
-  .stApp { background: #0b1222; color: #e5e7eb; }
-  h1,h2,h3 { color: #93c5fd; }
-  .accent { color:#93c5fd; }
-  .muted { color:#94a3b8; }
-  .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(148,163,184,0.15); margin-right:6px; font-size:12px;}
-  .card { background:#0f172a; border:1px solid rgba(148,163,184,0.15); border-radius:14px; padding:16px; margin-bottom:12px; }
-  .soft { box-shadow:0 6px 24px rgba(0,0,0,0.25); }
-  .stButton>button {
-      background:#3b82f6; color:white; border:0; padding:0.6rem 1rem;
-      border-radius:10px; transition:0.15s;
-  }
-  .stButton>button:hover { transform: translateY(-1px); filter:brightness(1.05); }
-  .metric-card { background:#0f172a; border-radius:14px; padding:14px; border:1px solid rgba(148,163,184,0.12); }
-  .section-title { margin-top:0; }
-  textarea, .stTextInput>div>div>input { color:#e5e7eb !important; }
-</style>
-""", unsafe_allow_html=True)
+
+st.markdown(
+    """
+    <style>
+      .stApp { background: #0b1222; color: #e5e7eb; }
+      h1,h2,h3 { color: #93c5fd; }
+      .accent { color:#93c5fd; }
+      .muted { color:#94a3b8; }
+      .chip { display:inline-block; padding:4px 10px; border-radius:999px; background:rgba(148,163,184,0.15); margin-right:6px; font-size:12px;}
+      .card { background:#0f172a; border:1px solid rgba(148,163,184,0.15); border-radius:14px; padding:16px; margin-bottom:12px; }
+      .soft { box-shadow:0 6px 24px rgba(0,0,0,0.25); }
+      .stButton>button {
+          background:#3b82f6; color:white; border:0; padding:0.6rem 1rem;
+          border-radius:10px; transition:0.15s;
+      }
+      .stButton>button:hover { transform: translateY(-1px); filter:brightness(1.05); }
+      .metric-card { background:#0f172a; border-radius:14px; padding:14px; border:1px solid rgba(148,163,184,0.12); }
+      .section-title { margin-top:0; }
+      textarea, .stTextInput>div>div>input { color:#e5e7eb !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.markdown("<h1>📊 AI-Assisted Data & Document Insights</h1>", unsafe_allow_html=True)
 st.caption("Smarter summaries • Actionable insights • Clean visuals")
@@ -118,7 +122,7 @@ def extract_keywords(text: str, top_k: int = 10):
 mode = st.sidebar.radio("Choose what to analyze:", ["📂 Dataset", "📑 Document"])
 
 # ---------------------------
-# MODE 1: Dataset
+# Dataset Mode
 # ---------------------------
 if mode == "📂 Dataset":
     st.markdown('<div class="card soft">', unsafe_allow_html=True)
@@ -243,7 +247,7 @@ if mode == "📂 Dataset":
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 # ---------------------------
-# MODE 2: Document
+# Document Mode
 # ---------------------------
 if mode == "📑 Document":
     st.markdown('<div class="card soft">', unsafe_allow_html=True)
