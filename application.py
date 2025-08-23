@@ -1,4 +1,5 @@
 # application.py
+from io import BytesIO  # add this at the top with imports
 import os
 import streamlit as st  # type: ignore
 import pandas as pd  # type: ignore
@@ -154,14 +155,21 @@ if mode == "📂 Dataset":
     else:
         st.info("No numeric columns available for anomaly detection.")
 
-    st.subheader("⬇️ Export")
-    st.download_button("Download cleaned dataset (CSV)",
-                       df.to_csv(index=False).encode("utf-8"),
-                       "cleaned_dataset.csv", "text/csv")
-    st.download_button("Download cleaned dataset (XLSX)",
-                       df.to_excel(index=False),
-                       "cleaned_dataset.xlsx",
-                       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+st.subheader("⬇️ Export")
+# CSV Export
+st.download_button("Download cleaned dataset (CSV)",
+                   df.to_csv(index=False).encode("utf-8"),
+                   "cleaned_dataset.csv", "text/csv")
+
+# Excel Export (fixed with BytesIO)
+towrite = BytesIO()
+df.to_excel(towrite, index=False, engine="openpyxl")
+towrite.seek(0)
+st.download_button("Download cleaned dataset (XLSX)",
+                   data=towrite,
+                   file_name="cleaned_dataset.xlsx",
+                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
 
 # ===========================
 # MODE 2: Document (Offline, Safe)
@@ -180,9 +188,10 @@ else:
         with fitz.open(stream=doc_file.read(), filetype="pdf") as pdf:
             for page in pdf:
                 text += page.get_text()
+        doc_file.seek(0)  # reset pointer just in case
     elif doc_file.name.lower().endswith(".docx"):
         text = docx2txt.process(doc_file)
-    else:
+    else:  # txt
         stringio = StringIO(doc_file.getvalue().decode("utf-8", errors="ignore"))
         text = stringio.read()
 
@@ -202,3 +211,4 @@ else:
                 summary = f"⚠️ Could not summarize: {e}"
 
         st.text_area("Summary:", summary, height=200)
+
