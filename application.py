@@ -155,26 +155,26 @@ if mode == "📂 Dataset":
     else:
         st.info("No numeric columns available for anomaly detection.")
 
-st.subheader("⬇️ Export")
-# CSV Export
-st.download_button("Download cleaned dataset (CSV)",
-                   df.to_csv(index=False).encode("utf-8"),
-                   "cleaned_dataset.csv", "text/csv")
+    st.subheader("⬇️ Export")
+    # CSV Export
+    st.download_button("Download cleaned dataset (CSV)",
+                       df.to_csv(index=False).encode("utf-8"),
+                       "cleaned_dataset.csv", "text/csv")
 
-# Excel Export (fixed with BytesIO)
-towrite = BytesIO()
-df.to_excel(towrite, index=False, engine="openpyxl")
-towrite.seek(0)
-st.download_button("Download cleaned dataset (XLSX)",
-                   data=towrite,
-                   file_name="cleaned_dataset.xlsx",
-                   mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    # Excel Export (fixed with BytesIO)
+    towrite = BytesIO()
+    df.to_excel(towrite, index=False, engine="openpyxl")
+    towrite.seek(0)
+    st.download_button("Download cleaned dataset (XLSX)",
+                       data=towrite,
+                       file_name="cleaned_dataset.xlsx",
+                       mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
 # ===========================
 # MODE 2: Document (Offline, Safe)
 # ===========================
-else:
+if mode == "📑 Document":
     st.subheader("📑 Upload a document (PDF, DOCX, or TXT)")
     doc_file = st.file_uploader("Choose a file", type=["pdf", "docx", "txt"])
 
@@ -211,4 +211,3 @@ else:
                 summary = f"⚠️ Could not summarize: {e}"
 
         st.text_area("Summary:", summary, height=200)
-
