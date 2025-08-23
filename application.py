@@ -10,8 +10,10 @@ from io import StringIO
 import docx2txt
 import fitz  # PyMuPDF
 
-# Offline summarization
-from gensim.summarization import summarize
+# Offline summarization using sumy
+from sumy.parsers.plaintext import PlaintextParser
+from sumy.nlp.tokenizers import Tokenizer
+from sumy.summarizers.lex_rank import LexRankSummarizer
 
 # ---------------------------
 # Streamlit Config + CSS
@@ -59,6 +61,12 @@ def infer_types(df: pd.DataFrame):
         else:
             types[col] = "categorical"
     return types
+
+def summarize_text(text, sentences_count=6):
+    parser = PlaintextParser.from_string(text, Tokenizer("english"))
+    summarizer = LexRankSummarizer()
+    summary = summarizer(parser.document, sentences_count)
+    return "\n".join([str(sentence) for sentence in summary])
 
 # ---------------------------
 # Sidebar: choose mode
@@ -186,13 +194,10 @@ else:
     if st.button("Generate Summary"):
         with st.spinner("Summarizing..."):
             try:
-                # safe summarization
-                if len(text.split('.')) < 10:
+                if len(text.split('.')) < 5:
                     summary = "⚠️ Document too short to summarize."
                 else:
-                    summary = summarize(text, ratio=0.05)
-                    if not summary.strip():
-                        summary = "⚠️ Could not generate summary. Text may be too short or unstructured."
+                    summary = summarize_text(text, sentences_count=8)
             except Exception as e:
                 summary = f"⚠️ Could not summarize: {e}"
 
