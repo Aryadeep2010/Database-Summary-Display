@@ -1,3 +1,6 @@
+import sys
+if "gensim" in sys.modules:
+    del sys.modules["gensim"]
 # application.py
 from io import BytesIO, StringIO
 import re
