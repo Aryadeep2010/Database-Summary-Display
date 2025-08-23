@@ -19,7 +19,7 @@ from sumy.summarizers.lsa import LsaSummarizer
 # ==============================
 # Helper: Document Summarization
 # ==============================
-def summarize_text(text, sentence_count=5):
+def summarize_text(text, sentence_count=6):
     if not text.strip():
         return "⚠️ No text found to summarize."
 
@@ -39,25 +39,35 @@ def summarize_text(text, sentence_count=5):
 # ==============================
 # Streamlit App
 # ==============================
-st.set_page_config(page_title="📊 Smart File Summarizer", layout="wide")
+st.set_page_config(page_title="📊 Smart Analyzer", layout="wide")
 
-st.title("📊 Smart File Summarizer")
-st.markdown("Upload a **document** (PDF/DOCX/TXT) or a **spreadsheet** (CSV/XLSX) to get an instant, clean summary.")
+st.markdown(
+    """
+    <h1 style='text-align: center; color: #FF5733;'>📊 Smart File Analyzer</h1>
+    <p style='text-align: center; font-size:18px;'>
+    Upload a <b>Document</b> (PDF/DOCX/TXT) or a <b>Spreadsheet</b> (CSV/XLSX) 
+    and get instant summaries, insights, and analysis.
+    </p>
+    """,
+    unsafe_allow_html=True,
+)
 
+# ---- Mode Selector ----
+mode = st.radio("🔍 Choose Mode", ["📑 Document", "📊 Spreadsheet"])
 
 # ---- File Upload ----
 uploaded_file = st.file_uploader("📂 Upload your file", type=["pdf", "docx", "txt", "csv", "xlsx"])
 
 
 if uploaded_file is not None:
-    file_type = uploaded_file.name.split(".")[-1].lower()
 
     # ==============================
     # Handle Document Mode
     # ==============================
-    if file_type in ["pdf", "docx", "txt"]:
-        st.markdown("### 📑 Document Mode")
+    if mode == "📑 Document":
+        st.markdown("### 📑 Document Analysis")
 
+        file_type = uploaded_file.name.split(".")[-1].lower()
         text = ""
 
         if file_type == "pdf":
@@ -74,58 +84,73 @@ if uploaded_file is not None:
 
         if text.strip():
             summary = summarize_text(text, sentence_count=7)
-            st.markdown("#### 📌 Summary:")
-            st.markdown(summary)
+            st.markdown("#### 📌 Clean Summary")
+            st.success(summary)
         else:
             st.warning("⚠️ Could not extract any text from this document.")
 
     # ==============================
     # Handle Spreadsheet Mode
     # ==============================
-    elif file_type in ["csv", "xlsx"]:
-        st.markdown("### 📊 Spreadsheet Mode")
+    elif mode == "📊 Spreadsheet":
+        st.markdown("### 📊 Spreadsheet Analysis")
 
+        file_type = uploaded_file.name.split(".")[-1].lower()
         if file_type == "csv":
             df = pd.read_csv(uploaded_file)
         else:
             df = pd.read_excel(uploaded_file)
 
+        # Show preview
         st.markdown("#### 🗂️ Data Preview")
         st.dataframe(df.head())
 
-        # Basic statistics
-        st.markdown("#### 📌 Key Insights:")
-        buffer = []
-        buffer.append(f"• Shape of dataset: {df.shape[0]} rows × {df.shape[1]} columns")
-        buffer.append(f"• Columns: {', '.join(df.columns)}")
+        # ===================
+        # Summary & Insights
+        # ===================
+        st.markdown("#### 📌 Key Insights")
+        insights = []
+        insights.append(f"• Dataset Shape: **{df.shape[0]} rows × {df.shape[1]} columns**")
+        insights.append(f"• Columns: {', '.join(df.columns)}")
+
+        # Missing values
+        missing = df.isnull().sum().sum()
+        if missing > 0:
+            insights.append(f"• Missing Values: **{missing}** found in dataset")
 
         # Numeric columns insights
         if not df.select_dtypes(include="number").empty:
-            buffer.append("• Numeric column statistics:")
-            desc = df.describe().transpose()
-            buffer.append(desc.to_string())
+            num_stats = df.describe().transpose()
+            insights.append("• Basic Statistics (Numeric Columns):")
+            st.write(num_stats)
 
-        # Outlier detection (Isolation Forest)
+        st.info("\n\n".join(insights))
+
+        # ===================
+        # Outlier Detection
+        # ===================
+        st.markdown("#### 🚨 Outlier Detection")
         if not df.select_dtypes(include="number").empty:
-            st.markdown("#### 🚨 Outlier Detection")
             iso = IsolationForest(contamination=0.05, random_state=42)
             preds = iso.fit_predict(df.select_dtypes(include="number").fillna(0))
             outliers = df[preds == -1]
-            st.write(f"Detected {len(outliers)} outliers.")
+            st.write(f"Detected **{len(outliers)}** potential outliers.")
             st.dataframe(outliers.head())
+        else:
+            st.warning("⚠️ No numeric columns found for anomaly detection.")
 
-        # Display summary
-        st.markdown("\n\n".join(buffer))
-
-        # Plot numeric columns
+        # ===================
+        # Visualization
+        # ===================
         st.markdown("#### 📈 Quick Visualization")
         num_cols = df.select_dtypes(include="number").columns
         if len(num_cols) > 0:
             col_to_plot = st.selectbox("Choose a column to visualize:", num_cols)
             plt.figure(figsize=(6, 4))
-            df[col_to_plot].hist(bins=20)
-            plt.title(f"Distribution of {col_to_plot}")
+            df[col_to_plot].hist(bins=20, color="#FF5733", edgecolor="black")
+            plt.title(f"Distribution of {col_to_plot}", fontsize=14, color="#333")
+            plt.xlabel(col_to_plot)
+            plt.ylabel("Frequency")
             st.pyplot(plt)
         else:
             st.info("No numeric columns to visualize.")
-
