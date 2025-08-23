@@ -1,3 +1,6 @@
+import streamlit as st
+st.cache_data.clear()
+st.cache_resource.clear()
 import sys
 if "gensim" in sys.modules:
     del sys.modules["gensim"]
