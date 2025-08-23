@@ -2,8 +2,8 @@ streamlit
 pandas
 matplotlib
 scikit-learn
-numpy
-openpyxl
-PyMuPDF
 docx2txt
+PyMuPDF
 sumy
+nltk
+openpyxl
